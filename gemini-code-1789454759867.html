@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>掌握病安 健康大秘寶 - 抽籤小遊戲</title>
+    <style>
+        :root {
+            --primary-color: #00897b;
+            --accent-color: #f57c00;
+            --destiny-color: #e53935;
+            --chance-color: #fbc02d;
+            --task-color: #1e88e5;
+            --bg-color: #e0f2f1;
+        }
+
+        body {
+            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .header {
+            text-align: center;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+
+        .score-board {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--accent-color);
+            background: #fff8e1;
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+            border: 2px solid var(--accent-color);
+        }
+
+        .draw-area {
+            margin: 15px 0;
+        }
+
+        .draw-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 14px 35px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+        }
+
+        .draw-btn:hover {
+            transform: scale(1.05);
+            background-color: #ef6c00;
+        }
+
+        .draw-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .card-container {
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+            display: none;
+            animation: popIn 0.4s ease-out;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .card-tag {
+            display: inline-block;
+            padding: 6px 16px;
+            color: white;
+            font-weight: bold;
+            border-radius: 20px;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+
+        .tag-命運 { background-color: var(--destiny-color); }
+        .tag-機會 { background-color: var(--chance-color); color: #333; }
+
+        .question {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .option-btn {
+            background: #f5f5f5;
+            border: 2px solid #ddd;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+        }
+
+        .option-btn:hover:not(:disabled) {
+            background: #e0f2f1;
+            border-color: var(--primary-color);
+        }
+
+        .result-box {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            font-weight: bold;
+            line-height: 1.4;
+        }
+
+        .correct { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .wrong { background-color: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+
+        .next-btn {
+            margin-top: 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            float: right;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>掌握病安 健康大秘寶</h1>
+        <p style="color:#666; margin: 5px 0 15px 0;">參與病安挑戰，累積你的健康金幣！</p>
+        <div class="score-board">
+            🪙 健康金幣：<span id="score">0</span> 枚
+        </div>
+    </div>
+
+    <div class="draw-area">
+        <button id="draw-btn" class="draw-btn" onclick="drawCard()">開始抽籤！</button>
+    </div>
+
+    <div class="card-container">
+        <div id="card" class="card">
+            <span id="card-tag" class="card-tag">類別</span>
+            <div id="question" class="question">題目載入中...</div>
+            <div id="options" class="options"></div>
+            <div id="result-box" class="result-box"></div>
+            <button id="next-btn" class="next-btn" style="display:none;" onclick="resetCard()">下一題</button>
+        </div>
+    </div>
+
+    <script>
+        // 設定背景 Google 表單連結與 entry ID
+        const GOOGLE_FORM_CONFIG = {
+            // 請將「您的表單ID」替換為實際表單的 ID
+            formUrl: "https://docs.google.com/forms/d/e/您的表單ID/formResponse", 
+            entries: {
+                userId: "entry.120859693",      // 玩家ID（已填入）
+                cardType: "entry.222222222",    // 卡片類別
+                question: "entry.333333333",    // 題目
+                result: "entry.444444444",      // 答題結果
+                scoreEarned: "entry.555555555" // 獲得金幣
+            }
+        };
+
+        // 自動生成全域唯一識別碼 (UUID)，代表該次訪問玩家
+        const userId = 'user_' + Math.random().toString(36).substr(2, 9);
+
+        const questions = [
+            {
+                type: "命運",
+                question: "你發現點滴剩一點點或覺得滴太慢，自己動手撥點滴管的滾輪把它調快？",
+                options: [
+                    { text: "調快一點沒關係，比較快打完。", isCorrect: false },
+                    { text: "不管點滴太快、太慢或機器在叫，絕對不動手，一律通知護理師。", isCorrect: true },
+                    { text: "直接把點滴拔掉。", isCorrect: false }
+                ],
+                explanation: "ANS：不管點滴太快、太慢或機器在叫，絕對不動手，一律通知護理師。"
+            },
+            {
+                type: "命運",
+                question: "協助使用面罩式壓呼吸器的家人進食，你該怎麼做？",
+                options: [
+                    { text: "隨時直接幫他拔掉面罩餵食。", isCorrect: false },
+                    { text: "通知醫護人員，切勿自行操作！", isCorrect: true },
+                    { text: "關掉機器電源即可，不需要通知醫護。", isCorrect: false }
+                ],
+                explanation: "ANS：通知醫護人員，切勿自行操作！進階：先摘面罩再關機，先開機再戴面罩。"
+            },
+            {
+                type: "命運",
+                question: "你看不懂醫療人員提供的衛生教育教材時，你會怎麼做？",
+                options: [
+                    { text: "裝作聽得懂，回家再自己上網查。", isCorrect: false },
+                    { text: "勇敢提出疑問，並給予修改建議，讓衛教教材更淺顯易懂。", isCorrect: true },
+                    { text: "直接把教材丟掉。", isCorrect: false }
+                ],
+                explanation: "ANS：勇敢提出疑問，並給予修改建議，讓衛教教材更淺顯易懂。"
+            },
+            {
+                type: "命運",
+                question: "你對某種藥物過敏，護理師幫你打抗生素，但她沒有問你過敏史？",
+                options: [
+                    { text: "主動告知過敏史，或詢問藥物含有什麼成分。", isCorrect: true },
+                    { text: "護理師沒問就代表沒關係，不用講。", isCorrect: false },
+                    { text: "等打完藥發現過敏再反應。", isCorrect: false }
+                ],
+                explanation: "ANS：主動告知過敏史，或詢問藥物含有什麼成分。"
+            },
+            {
+                type: "機會",
+                question: "當你服用抗凝血劑時，收到鄰居送的人蔘及銀杏，卻不知道能不能食用？",
+                options: [
+                    { text: "覺得是健康食品，直接配藥一起吃。", isCorrect: false },
+                    { text: "主動把保健食品帶去諮詢藥師。", isCorrect: true },
+                    { text: "上網問網友意見就好。", isCorrect: false }
+                ],
+                explanation: "ANS：主動把保健食品帶去諮詢藥師。"
+            },
+            {
+                type: "機會",
+                question: "當你對於自身疾病及治療選項有疑問時，你會怎麼做？",
+                options: [
+                    { text: "不敢問醫生，怕耽誤醫生時間。", isCorrect: false },
+                    { text: "勇敢提出你在意的問題，並確實了解不同選項的內容，不懂就再次提問。", isCorrect: true },
+                    { text: "聽親朋好友的偏方就好。", isCorrect: false }
+                ],
+                explanation: "ANS：勇敢提出你在意的問題，並確實了解不同選項的內容，不懂就再次提問。"
+            },
+            {
+                type: "機會",
+                question: "當醫生對你的疾病提出多種治療方式時，你會怎麼做？",
+                options: [
+                    { text: "主動確認不同治療方式有什麼優缺點，表達決策相關的在意點或價值觀。", isCorrect: true },
+                    { text: "完全交給醫生決定，自己不發表任何意見。", isCorrect: false },
+                    { text: "挑選最便宜的治療方式就好。", isCorrect: false }
+                ],
+                explanation: "ANS：主動確認不同治療方式有什麼優缺點，表達決策相關的在意點或價值觀。"
+            },
+            {
+                type: "機會",
+                question: "你是慢性病人，今天到診所看喉嚨痛，醫生詢問用藥史？",
+                options: [
+                    { text: "太麻煩了，只說「就平時吃的慢性病藥」。", isCorrect: false },
+                    { text: "主動用手機打開「健康存摺」給醫生看就醫及用藥紀錄。", isCorrect: true },
+                    { text: "隱瞞病情不告知。", isCorrect: false }
+                ],
+                explanation: "ANS：主動用手機打開「健康存摺」給醫生看就醫及用藥紀錄。"
+            }
+        ];
+
+        let score = 0;
+        let drawnIndexes = [];
+        let currentQuestion = null;
+
+        function drawCard() {
+            if (drawnIndexes.length === questions.length) {
+                alert("🎉 恭喜您已完成所有病安闖關！即將重新開始新一輪。");
+                drawnIndexes = [];
+            }
+
+            let randomIndex;
+            do {
+                randomIndex = Math.floor(Math.random() * questions.length);
+            } while (drawnIndexes.includes(randomIndex));
+            
+            drawnIndexes.push(randomIndex);
+            currentQuestion = questions[randomIndex];
+
+            document.getElementById('draw-btn').disabled = true;
+
+            const cardTag = document.getElementById('card-tag');
+            cardTag.innerText = currentQuestion.type;
+            cardTag.className = `card-tag tag-${currentQuestion.type}`;
+
+            document.getElementById('question').innerText = currentQuestion.question;
+
+            const optionsContainer = document.getElementById('options');
+            optionsContainer.innerHTML = '';
+            
+            document.getElementById('result-box').style.display = 'none';
+            document.getElementById('next-btn').style.display = 'none';
+
+            currentQuestion.options.forEach((opt) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt.text;
+                btn.onclick = () => checkAnswer(opt.isCorrect, currentQuestion.explanation);
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('card').style.display = 'block';
+        }
+
+        function checkAnswer(isCorrect, explanation) {
+            const resultBox = document.getElementById('result-box');
+            const optionBtns = document.querySelectorAll('.option-btn');
+            optionBtns.forEach(btn => btn.disabled = true);
+
+            resultBox.style.display = 'block';
+            let scoreGained = 0;
+            let resultStatus = "";
+
+            if (isCorrect) {
+                scoreGained = 10;
+                score += scoreGained;
+                resultStatus = "答對";
+                document.getElementById('score').innerText = score;
+                resultBox.className = 'result-box correct';
+                resultBox.innerHTML = `🎉 回答正確！獲得 10 枚健康金幣！<br><br>${explanation}`;
+            } else {
+                resultStatus = "答錯";
+                resultBox.className = 'result-box wrong';
+                resultBox.innerHTML = `❌ 答錯囉，再接再勵！<br><br>${explanation}`;
+            }
+
+            document.getElementById('next-btn').style.display = 'block';
+
+            // 將記錄送至 Google Form 後台
+            sendRecordToGoogleForm({
+                userId: userId,
+                cardType: currentQuestion.type,
+                question: currentQuestion.question,
+                result: resultStatus,
+                scoreEarned: scoreGained
+            });
+        }
+
+        function sendRecordToGoogleForm(data) {
+            if (!GOOGLE_FORM_CONFIG.formUrl.includes("http")) return;
+
+            const formData = new FormData();
+            formData.append(GOOGLE_FORM_CONFIG.entries.userId, data.userId);
+            formData.append(GOOGLE_FORM_CONFIG.entries.cardType, data.cardType);
+            formData.append(GOOGLE_FORM_CONFIG.entries.question, data.question);
+            formData.append(GOOGLE_FORM_CONFIG.entries.result, data.result);
+            formData.append(GOOGLE_FORM_CONFIG.entries.scoreEarned, data.scoreEarned);
+
+            // 使用 mode: 'no-cors' 靜默發送資料至 Google Form
+            fetch(GOOGLE_FORM_CONFIG.formUrl, {
+                method: "POST",
+                mode: "no-cors",
+                body: formData
+            }).catch(err => console.log("紀錄傳送失敗:", err));
+        }
+
+        function resetCard() {
+            document.getElementById('card').style.display = 'none';
+            document.getElementById('draw-btn').disabled = false;
+        }
+    </script>
+</body>
+</html>
